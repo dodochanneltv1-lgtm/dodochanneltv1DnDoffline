@@ -108,7 +108,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   background: rgba(0, 0, 0, 0.4);
-  color: #fff;
+  color: #858585;
   font-size: 14px;
 }
 th, td {
@@ -135,3 +135,4 @@ td input {
     padding: 10px;
   }
 }
+
