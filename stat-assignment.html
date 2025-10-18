@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Stats</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif; background-color: transparent; color: #fff;
+            display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;
+        }
+        .main-container {
+            width: 100%; max-width: 700px; padding: 30px 40px; background-color: rgba(10, 10, 10, 0.75);
+            backdrop-filter: blur(12px); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 2.5em; text-align: center; margin-bottom: 10px; font-weight: bold;
+            color: #fff !important; text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5) !important;
+        }
+        .header-p {
+            text-align: center; font-size: 1.2em; color: #e0e0e0; margin-bottom: 15px; font-weight: 500;
+            text-shadow: 1px 1px 5px #000, -1px -1px 5px #000;
+        }
+        .header-p.small-text { font-size: 1em; color: #bbb; }
+        #remainingPointsUI {
+            font-size: 3em; font-weight: bold; color: #ffc107;
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+        }
+        hr { border: none; border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 30px 0; }
+        #statPanel { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .stat-line {
+            display: grid; grid-template-columns: 60px 1fr 100px 100px; align-items: center; gap: 15px;
+            background-color: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 8px;
+        }
+        .stat-label { font-weight: bold; font-size: 1.5em; }
+        .points-control { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .btn-adjust {
+            width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.3);
+            background-color: rgba(255, 255, 255, 0.1); color: #fff; font-size: 1.5em; cursor: pointer; transition: all 0.2s ease;
+        }
+        .btn-adjust:hover { background-color: rgba(255, 255, 255, 0.2); transform: scale(1.1); }
+        .stat-value { font-size: 1.8em; font-weight: bold; text-align: center; }
+        .stat-bonus, .stat-total { text-align: center; padding: 8px; border-radius: 6px; font-size: 1.2em; font-weight: bold; }
+        .stat-bonus { background-color: rgba(0, 123, 255, 0.2); border: 1px solid rgba(0, 123, 255, 0.5); }
+        .stat-total { background-color: rgba(40, 167, 69, 0.3); border: 1px solid rgba(40, 167, 69, 0.6); }
+        #summaryPanel h2 { text-align: center; color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
+        #baseStatsSummary p { font-size: 1.1em; margin: 8px 0; color: #ddd; text-shadow: 1px 1px 2px #000; }
+        #finalizeButton {
+            width: 100%; padding: 15px; margin-top: 15px; font-size: 1.1em; font-weight: bold;
+            border-radius: 8px; border: none; cursor: pointer; transition: all 0.3s ease;
+            background: linear-gradient(90deg, #1cb5e0, #000046); color: white;
+        }
+        #finalizeButton:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(28, 181, 224, 0.4); }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <h1>ลงแต้มสถานะ (Point Buy)</h1>
+    <p class="header-p">คุณมีแต้มให้อัพได้รอบนี้: <span id="remainingPointsUI">0</span> แต้ม</p>
+    <p class="header-p small-text">ใช้แต้มเพื่อเพิ่มสถานะ (แต้มที่ไม่ได้ใช้จะถูกเก็บไว้)</p>
+    <hr>
+    <div id="statPanel"></div>
+    <hr>
+    <div id="summaryPanel">
+        <h2>สถานะรวม (รวมโบนัส)</h2>
+        <div id="baseStatsSummary"></div>
+        <button id="finalizeButton" onclick="finalizeStats()">บันทึกและกลับไปที่แดชบอร์ด</button>
+    </div>
+</div>
+
+<script src="Javascript/charector.js"></script> 
+<script>
+    let characterData = null;
+    let newPointsAvailable = 0;
+    let baseInvested = {};
+    const statsToAssign = {};
+    const statOrder = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+
+    /**
+     * [เพิ่ม] ฟังก์ชันคำนวณสเตตัสรวมโบนัสเลเวล (นำมาจากไฟล์อื่นเพื่อให้ตรงกัน)
+     */
+    function calculateTotalStat(charData, statKey) {
+        if (!charData || !charData.stats) return 0;
+        const stats = charData.stats;
+        const permanentLevel = charData.level || 1;
+        const tempLevel = charData.tempLevel || 0;
+        const totalLevel = permanentLevel + tempLevel;
+        
+        // สร้าง object stats ชั่วคราวที่รวมค่าที่กำลังแก้ไขเข้าไปด้วย
+        const currentInvested = statsToAssign[statKey] || 0;
+        const tempStatsWithCurrentChanges = { ...stats };
+        tempStatsWithCurrentChanges.investedStats = { ...stats.investedStats, [statKey]: currentInvested };
+
+        const baseStat = (tempStatsWithCurrentChanges.baseRaceStats?.[statKey] || 0) +
+                         (tempStatsWithCurrentChanges.baseClassStats?.[statKey] || 0) +
+                         (tempStatsWithCurrentChanges.investedStats?.[statKey] || 0) +
+                         (tempStatsWithCurrentChanges.tempStats?.[statKey] || 0);
+                         
+        if (baseStat === 0) return 0;
+        const levelBonus = baseStat * (totalLevel - 1) * 0.2;
+        return Math.floor(baseStat + levelBonus);
+    }
+
+    function loadCharacterData() {
+        const charName = localStorage.getItem("character");
+        if (!charName) {
+            showCustomAlert("ไม่พบข้อมูลตัวละคร กรุณาสร้างตัวละครใหม่", 'error');
+            setTimeout(() => { window.location.href = "PlayerCharecter.html"; }, 2000);
+            return;
+        }
+        
+        const players = JSON.parse(localStorage.getItem("players"));
+        characterData = players[charName];
+        
+        baseInvested = JSON.parse(JSON.stringify(characterData.stats.investedStats || {}));
+        Object.assign(statsToAssign, characterData.stats.investedStats || {});
+        
+        newPointsAvailable = characterData.freeStatPoints || 0;
+        
+        renderStatAssignment();
+        updatePointsUI();
+        updateStatsSummary();
+    }
+
+    function renderStatAssignment() {
+        const panel = document.getElementById('statPanel');
+        panel.innerHTML = `<div style="display: grid; grid-template-columns: 60px 1fr 100px 100px; gap: 15px; font-weight: bold; color: #aaa; text-align: center; padding: 0 15px;"><div>สถานะ</div><div>แต้มที่ลง</div><div>โบนัส</div><div>รวม</div></div>`;
+        
+        statOrder.forEach(stat => {
+            statsToAssign[stat] = statsToAssign[stat] || 0;
+            const raceVal = characterData.stats.baseRaceStats[stat] || 0;
+            const classVal = characterData.stats.baseClassStats[stat] || 0;
+            const raceClassTotal = raceVal + classVal;
+            
+            const div = document.createElement('div');
+            div.className = 'stat-line';
+            div.innerHTML = `
+                <div class="stat-label">${stat}</div>
+                <div class="points-control">
+                    <button class="btn-adjust" data-stat="${stat}" onclick="adjustStat(this, -1)">-</button>
+                    <div class="stat-value" id="assign-${stat}">${statsToAssign[stat]}</div>
+                    <button class="btn-adjust" data-stat="${stat}" onclick="adjustStat(this, 1)">+</button>
+                </div>
+                <div class="stat-bonus">${raceClassTotal}</div>
+                <div class="stat-total" id="total-${stat}">${raceClassTotal + statsToAssign[stat]}</div>
+            `;
+            panel.appendChild(div);
+        });
+    }
+
+    function updatePointsUI() {
+        const baseSpent = Object.values(baseInvested).reduce((a, b) => a + b, 0);
+        const currentSpent = Object.values(statsToAssign).reduce((a, b) => a + b, 0);
+        const newPointsUsed = currentSpent - baseSpent;
+        document.getElementById('remainingPointsUI').textContent = newPointsAvailable - newPointsUsed;
+    }
+
+    function adjustStat(button, amount) {
+        const stat = button.dataset.stat;
+        const baseSpent = Object.values(baseInvested).reduce((a, b) => a + b, 0);
+        const currentSpent = Object.values(statsToAssign).reduce((a, b) => a + b, 0);
+        const newPointsUsed = currentSpent - baseSpent;
+
+        if (amount > 0 && newPointsUsed < newPointsAvailable) {
+            statsToAssign[stat]++;
+        } else if (amount < 0 && statsToAssign[stat] > (baseInvested[stat] || 0)) {
+            statsToAssign[stat]--;
+        }
+        
+        updatePointsUI();
+        
+        const raceVal = characterData.stats.baseRaceStats[stat] || 0;
+        const classVal = characterData.stats.baseClassStats[stat] || 0;
+        
+        document.getElementById(`assign-${stat}`).textContent = statsToAssign[stat];
+        document.getElementById(`total-${stat}`).textContent = raceVal + classVal + statsToAssign[stat];
+        
+        updateStatsSummary();
+    }
+
+    /**
+     * [แก้ไข] ใช้ calculateTotalStat เพื่อคำนวณ CON และ Max HP ที่ถูกต้อง
+     */
+    function updateStatsSummary() {
+        const summaryDiv = document.getElementById('baseStatsSummary');
+        let summaryHTML = '';
+
+        const oldMaxHp = characterData.maxHp || 0;
+        
+        // สร้าง object character ชั่วคราวเพื่อใช้คำนวณค่า Final
+        const tempCharData = { ...characterData, stats: { ...characterData.stats, investedStats: statsToAssign } };
+        
+        const finalCon = calculateTotalStat(tempCharData, 'CON');
+
+        statOrder.forEach(stat => {
+            const finalValue = calculateTotalStat(tempCharData, stat);
+            const baseValue = (tempCharData.stats.baseRaceStats[stat] || 0) + (tempCharData.stats.baseClassStats[stat] || 0);
+            summaryHTML += `<p><strong>${stat}:</strong> ${finalValue} (โบนัส: ${baseValue} + แต้ม: ${statsToAssign[stat] || 0})</p>`;
+        });
+
+        const newMaxHp = calculateHP(characterData.race, characterData.class, finalCon);
+        summaryHTML += `<p style="margin-top:15px; font-size: 1.2em; color: #ffc107;"><strong>พลังชีวิตสูงสุด (Max HP):</strong> ${newMaxHp}</p>`;
+        summaryDiv.innerHTML = summaryHTML;
+        
+        if (newMaxHp > oldMaxHp && characterData.hp === oldMaxHp) {
+            characterData.hp = newMaxHp;
+        }
+        if (characterData.hp > newMaxHp) {
+            characterData.hp = newMaxHp;
+        }
+        characterData.maxHp = newMaxHp;
+    }
+
+    function finalizeStats() {
+        const baseSpent = Object.values(baseInvested).reduce((a, b) => a + b, 0);
+        const currentSpent = Object.values(statsToAssign).reduce((a, b) => a + b, 0);
+        const newPointsUsed = currentSpent - baseSpent;
+        const remainingPoints = newPointsAvailable - newPointsUsed;
+
+        updateStatsSummary();
+        
+        characterData.stats.investedStats = statsToAssign; 
+        characterData.freeStatPoints = remainingPoints;
+
+        const charName = localStorage.getItem("character");
+        const players = JSON.parse(localStorage.getItem("players"));
+        players[charName] = characterData;
+        localStorage.setItem("players", JSON.stringify(players));
+
+        showCustomAlert("บันทึกสถานะเรียบร้อยแล้ว! กำลังกลับไปที่แดชบอร์ด...", 'success');
+        
+        setTimeout(() => { window.location.href = "player-dashboard.html"; }, 1500);
+    }
+    
+    window.onload = loadCharacterData;
+</script>
+
+</body>
+</html>

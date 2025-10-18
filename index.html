@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>DnD System (Persistent Music)</title>
+    <link rel="stylesheet" href="style.css"> 
+    <script src="Javascript/BG.js"></script>
+    <style>
+
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #contentFrame {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            background-size: cover;              
+            background-position: center;         
+            background-repeat: no-repeat;        
+            background-attachment: fixed;        
+            text-align: center;
+            transition: background-image 2s ease-in-out;
+            background-color: #000;
+            overflow: hidden; 
+        }
+        #background-layers {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0; 
+            background-size: cover;              
+            background-position: center;         
+            background-repeat: no-repeat;
+            
+            transition: opacity 2s ease-in-out;
+        }
+
+        .bg-layer.active {
+            opacity: 1; 
+        }
+
+        #contentFrame {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            background-color: transparent; 
+            text-align: center;
+        }
+        
+    </style>
+    
+</head>
+<body>
+    <body>
+    <div id="background-layers">
+        <div id="bg-layer-1" class="bg-layer"></div>
+        <div id="bg-layer-2" class="bg-layer"></div>
+    </div>
+    
+    <iframe src="player.html" style="display:none;" id="musicFrame"></iframe>
+
+    <iframe src="menu.html" id="contentFrame" name="contentFrame"></iframe>
+
+    <script>
+        const musicPlayerFrame = document.getElementById('musicFrame');
+        
+        // Listener รอรับคำสั่งให้เล่นเพลงจากหน้าลูก (เช่น menu.html)
+        window.addEventListener('message', (event) => {
+            if(event.data === 'REQUEST_PLAY_MUSIC'){
+                // ส่งคำสั่งต่อไปให้ iframe ที่เล่นเพลงโดยเฉพาะ
+                musicPlayerFrame.contentWindow.postMessage('playMusic', '*');
+            }
+        });
+    </script>
+</body>
+</body>
+</html>
